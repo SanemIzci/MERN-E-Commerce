@@ -2,44 +2,6 @@
 
 A modern full-stack e-commerce platform built with React, Node.js, and MongoDB, featuring a comprehensive set of e-commerce functionalities.
 
-## 🚀 Key Features
-
-### User Management
-- User registration and login
-- Password reset functionality
-- User profile management
-- Admin dashboard for user management
-- Secure authentication with JWT
-
-### Product Management
-- Browse products with pagination
-- Advanced product filtering by:
-  - Price range
-  - Category
-  - Rating
-- Detailed product view
-- Product search functionality
-- Admin product management
-
-### Shopping Experience
-- Shopping cart functionality
-- Real-time cart updates
-- Product quantity management
-- Order history tracking
-
-### Admin Features
-- Product management (CRUD operations)
-- User management
-- Order management
-- Dashboard analytics
-
-### User Interface
-- Responsive design with Tailwind CSS
-- Modern and intuitive user interface
-- Loading states and animations
-- Error handling and notifications
-- Pagination for better user experience
-
 ## 🛠️ Tech Stack
 
 ### Frontend
