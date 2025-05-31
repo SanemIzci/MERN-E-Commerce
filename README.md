@@ -25,7 +25,6 @@ A modern full-stack e-commerce platform built with React, Node.js, and MongoDB, 
 - Shopping cart functionality
 - Real-time cart updates
 - Product quantity management
-- Secure checkout process
 - Order history tracking
 
 ### Admin Features

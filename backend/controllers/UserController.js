@@ -92,6 +92,8 @@ export const login = async (req, res) => {
                 id: user._id,
                 name: user.name,
                 email: user.email,
+                role: user.role,
+                avatar: user.avatar
             },
             token,
         });
@@ -246,10 +248,11 @@ export const userDetail = async (req, res, next) => {
                 id: user._id,
                 name: user.name,
                 email: user.email,
+                role: user.role,
                 avatar: user.avatar
             }
         });
     } catch (error) {
-        res.status(500).json({ message: "Server error" });
+        next(error);
     }
 }

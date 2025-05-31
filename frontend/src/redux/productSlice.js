@@ -4,7 +4,7 @@ const initialState = {
   products: [], // Ürünler listesi
   product: null, // Tek bir ürünün detayları
   loading: false, // Yükleme durumu
-  adminProducts: [],
+  adminProducts: { products: [] },
   relatedProducts: [],
   error: null,
 };
@@ -53,15 +53,29 @@ export const getProducts = createAsyncThunk(
 
 export const getAdminProducts = createAsyncThunk(
   "products/getAdminProducts",
-  async () => {
-    const token = localStorage.getItem("token");
-    const response = await fetch(`http://localhost:4000/products/admin`,{
-      headers:{
-        'authorization': `Bearer ${token}`,
+  async (_, { rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        return rejectWithValue('Authentication required');
       }
-    })
-    const data = await response.json();
-    return data; // API'den dönen tüm veriyi döndürüyoruz
+
+      const response = await fetch(`http://localhost:4000/products/admin`, {
+        headers: {
+          'authorization': `Bearer ${token}`,
+        }
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        return rejectWithValue(data.message || 'Failed to fetch admin products');
+      }
+      
+      return data;
+    } catch (error) {
+      return rejectWithValue(error.message || 'Failed to fetch admin products');
+    }
   }
 );
 
@@ -81,40 +95,29 @@ export const getProductDetail = createAsyncThunk(
 
 export const createProduct = createAsyncThunk(
   "products/createProduct",
-  async (productData) => {
+  async (productData, { rejectWithValue }) => {
     const token = localStorage.getItem("token");
-    const formData = new FormData();
-    
-    // Append all product data to FormData
-    Object.keys(productData).forEach(key => {
-      if (key === 'images') {
-        if (productData[key] && productData[key].length > 0) {
-          productData[key].forEach(image => {
-            formData.append('images', image);
-          });
-        }
-      } else if (productData[key] !== null && productData[key] !== undefined) {
-        formData.append(key, productData[key]);
-      }
-    });
+    if (!token) {
+      return rejectWithValue('Authentication required');
+    }
 
     try {
       const response = await fetch(`http://localhost:4000/products/new`, {
         method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           'authorization': `Bearer ${token}`,
         },
-        body: formData
+        body: JSON.stringify(productData)
       });
       
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.message || 'Failed to create product');
+        return rejectWithValue(data.message || 'Failed to create product');
       }
       return data;
     } catch (error) {
-      console.error('Error in createProduct:', error);
-      throw error;
+      return rejectWithValue(error.message || 'Failed to create product');
     }
   }
 );
@@ -152,13 +155,73 @@ export const getRelatedProducts = createAsyncThunk(
   }
 );
 
+export const deleteProduct = createAsyncThunk(
+  "products/deleteProduct",
+  async (productId, { rejectWithValue }) => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      return rejectWithValue('Authentication required');
+    }
+
+    try {
+      const response = await fetch(`http://localhost:4000/products/${productId}`, {
+        method: 'DELETE',
+        headers: {
+          'authorization': `Bearer ${token}`,
+        }
+      });
+      
+      const data = await response.json();
+      if (!response.ok) {
+        return rejectWithValue(data.message || 'Failed to delete product');
+      }
+      return { productId, ...data };
+    } catch (error) {
+      return rejectWithValue(error.message || 'Failed to delete product');
+    }
+  }
+);
+
+export const updateProduct = createAsyncThunk(
+  "products/updateProduct",
+  async ({ productId, productData }, { rejectWithValue }) => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      return rejectWithValue('Authentication required');
+    }
+
+    try {
+      const response = await fetch(`http://localhost:4000/products/${productId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(productData)
+      });
+      
+      const data = await response.json();
+      if (!response.ok) {
+        return rejectWithValue(data.message || 'Failed to update product');
+      }
+      return data;
+    } catch (error) {
+      return rejectWithValue(error.message || 'Failed to update product');
+    }
+  }
+);
+
 
 
 
 const productSlice = createSlice({
   name: "products",
   initialState,
-  reducers: {},
+  reducers: {
+    clearError: (state) => {
+      state.error = null;
+    }
+  },
   extraReducers: (builder) => {
     builder
       // getProducts
@@ -183,24 +246,34 @@ const productSlice = createSlice({
       })
       .addCase(getAdminProducts.pending, (state) => {
         state.loading = true;
+        state.error = null;
       })
       .addCase(getAdminProducts.fulfilled, (state, action) => {
         state.loading = false;
-        state.adminProducts = action.payload; 
+        state.error = null;
+        state.adminProducts = {
+          success: action.payload.success,
+          products: action.payload.products || []
+        };
+      })
+      .addCase(getAdminProducts.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || 'Failed to fetch admin products';
       })
       .addCase(createProduct.pending, (state) => {
         state.loading = true;
+        state.error = null;
       })
       .addCase(createProduct.fulfilled, (state, action) => {
         state.loading = false;
-        if (!state.adminProducts.products) {
-          state.adminProducts = { products: [] };
+        state.error = null;
+        if (action.payload?.product) {
+          state.adminProducts.products.push(action.payload.product);
         }
-        state.adminProducts.products.push(action.payload.product);
       })
       .addCase(createProduct.rejected, (state, action) => {
         state.loading = false;
-        console.error('Error creating product:', action.error.message);
+        state.error = action.payload || 'Failed to create product';
       })
       .addCase(createReview.pending, (state) => {
         state.loading = true;
@@ -227,6 +300,41 @@ const productSlice = createSlice({
       .addCase(getRelatedProducts.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+      })
+      .addCase(deleteProduct.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(deleteProduct.fulfilled, (state, action) => {
+        state.loading = false;
+        state.error = null;
+        // Remove the deleted product from the admin products list
+        state.adminProducts.products = state.adminProducts.products.filter(
+          product => product._id !== action.payload.productId
+        );
+      })
+      .addCase(deleteProduct.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || 'Failed to delete product';
+      })
+      .addCase(updateProduct.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updateProduct.fulfilled, (state, action) => {
+        state.loading = false;
+        state.error = null;
+        // Update the product in the admin products list
+        const index = state.adminProducts.products.findIndex(
+          product => product._id === action.payload.updateProduct._id
+        );
+        if (index !== -1) {
+          state.adminProducts.products[index] = action.payload.updateProduct;
+        }
+      })
+      .addCase(updateProduct.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || 'Failed to update product';
       });
   },
 });

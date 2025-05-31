@@ -41,26 +41,45 @@ export const productDetail = async (req, res) => {
 export const createProduct = async (req, res) => {
     try {
         let images = [];
+        
+        // Handle base64 images
+        if (req.body.images) {
+            if (typeof req.body.images === "string") {
+                images.push(req.body.images);
+            } else if (Array.isArray(req.body.images)) {
+                images = req.body.images;
+            }
+        }
+        
+        // Handle file uploads
+        if (req.files && req.files.length > 0) {
+            for (let index = 0; index < req.files.length; index++) {
+                const result = await cloudinary.uploader.upload(req.files[index].path, {
+                    folder: "products"
+                });
 
-        // Eğer tek bir image string olarak geldiyse diziye çevir
-        if (typeof req.body.images === "string") {
-            images.push(req.body.images);
-        } else {
-            images = req.body.images; // JSON'daki images dizisini al
+                images.push({
+                    public_id: result.public_id,
+                    url: result.secure_url
+                });
+            }
         }
 
         let all_images = [];
-
-        // Cloudinary'ye yükleme işlemi
+        
+        // Upload base64 images to Cloudinary
         for (let index = 0; index < images.length; index++) {
-            const result = await cloudinary.uploader.upload(images[index], {
-                folder: "products"
-            });
-
-            all_images.push({
-                public_id: result.public_id,
-                url: result.secure_url
-            });
+            if (typeof images[index] === 'string' && images[index].startsWith('data:')) {
+                const result = await cloudinary.uploader.upload(images[index], {
+                    folder: "products"
+                });
+                all_images.push({
+                    public_id: result.public_id,
+                    url: result.secure_url
+                });
+            } else if (typeof images[index] === 'object') {
+                all_images.push(images[index]);
+            }
         }
 
         req.body.images = all_images;
@@ -73,6 +92,7 @@ export const createProduct = async (req, res) => {
             product
         });
     } catch (error) {
+        console.error('Product creation error:', error);
         res.status(500).json({
             success: false,
             message: error.message
